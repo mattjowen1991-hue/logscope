@@ -1,4 +1,5 @@
 // === EVENT HANDLERS ===
+document.addEventListener('DOMContentLoaded', () => {
 
 // Virtual scroll
 let scrollRaf = 0;
@@ -131,4 +132,5 @@ $('feedContainer').addEventListener('mouseover', (e) => {
       }
     }
   }
+});
 });

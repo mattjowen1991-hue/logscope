@@ -1,68 +1,95 @@
 // === FILE LOADING ===
-function loadFiles(files) {
+async function loadFiles(files) {
   $('loadingBar').classList.add('active');
-  $('statusLeft').textContent = 'Reading files...';
+  parseStartTime = performance.now();
 
   const fileArray = Array.from(files);
   const results = [];
-  let read = 0;
+  let processed = 0;
 
-  fileArray.forEach((file, idx) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      results.push({ name: file.name, index: idx, text });
-      read++;
-      if (read === fileArray.length) processFiles(results);
-    };
-    reader.onerror = () => { read++; if (read === fileArray.length) processFiles(results); };
-    reader.readAsText(file);
-  });
+  for (const file of fileArray) {
+    $('statusLeft').textContent = 'Reading ' + file.name + '...';
+
+    if (file.name.endsWith('.zip')) {
+      // Extract zip contents
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const entries = Object.entries(zip.files).filter(([n, f]) => !f.dir && !n.endsWith('.zip'));
+        for (const [name, entry] of entries) {
+          const text = await entry.async('string');
+          const shortName = name.includes('/') ? name.split('/').pop() : name;
+          results.push({ name: shortName, text: text.replace(/\r\n/g, '\n').replace(/\r/g, '\n') });
+        }
+      } catch(e) {
+        console.warn('Failed to read zip:', file.name, e);
+      }
+    } else {
+      const text = await file.text();
+      results.push({ name: file.name, text: text.replace(/\r\n/g, '\n').replace(/\r/g, '\n') });
+    }
+    processed++;
+    $('statusLeft').textContent = 'Reading files... ' + processed + '/' + fileArray.length;
+  }
+
+  processFiles(results);
 }
 
 function loadPastedText(text) {
-  processFiles([{ name: 'pasted-log', index: 0, text: text.replace(/\r\n/g, '\n').replace(/\r/g, '\n') }]);
+  $('loadingBar').classList.add('active');
+  parseStartTime = performance.now();
+  processFiles([{ name: 'pasted-log', text: text.replace(/\r\n/g, '\n').replace(/\r/g, '\n') }]);
 }
 
 function processFiles(files) {
+  $('statusLeft').textContent = 'Parsing ' + files.length + ' files...';
+
   // Sort files by first timestamp found
   files.forEach(f => {
     const lines = f.text.split('\n');
     for (const line of lines) {
-      const ts = parseTs(line);
+      const ts = parseTsMs(line);
       if (ts) { f.firstTs = ts; break; }
     }
     if (!f.firstTs) f.firstTs = Infinity;
   });
   files.sort((a, b) => a.firstTs - b.firstTs);
 
-  // Assign colors
-  fileColors = files.map((f, i) => ({ name: f.name, color: FILE_COLORS[i % FILE_COLORS.length] }));
+  // Assign colors and groups
+  fileColors = files.map((f, i) => ({
+    name: f.name,
+    color: FILE_COLORS[i % FILE_COLORS.length],
+    group: getFileGroup(f.name)
+  }));
+
+  fileGroups = {};
+  fileColors.forEach((f, i) => {
+    if (!fileGroups[f.group]) fileGroups[f.group] = [];
+    fileGroups[f.group].push(i);
+  });
 
   // Parse all lines with file origin
+  $('statusLeft').textContent = 'Parsing lines...';
   let rawLines = [];
   files.forEach((f, fileIdx) => {
     const lines = f.text.split('\n');
     let lastTs = null;
-    lines.forEach((line, lineInFile) => {
-      if (!line.trim()) return; // skip empty
-      const ts = parseTs(line);
+    for (let j = 0; j < lines.length; j++) {
+      const line = lines[j];
+      if (!line.trim()) continue;
+      const ts = parseTsMs(line);
       if (ts) lastTs = ts;
-      const level = parseLevel(line);
-      // Extract content after the level tag
-      let content = line;
       rawLines.push({
         ts: ts || lastTs,
-        level,
-        content,
+        level: parseLevelNum(line),
+        content: line,
         fileIndex: fileIdx,
-        fileName: f.name,
-        raw: line
+        fileName: f.name
       });
-    });
+    }
   });
 
-  // Sort all lines chronologically (stable sort preserves order within same timestamp)
+  // Sort all lines chronologically
+  $('statusLeft').textContent = 'Sorting ' + rawLines.length.toLocaleString() + ' lines...';
   rawLines.sort((a, b) => {
     if (!a.ts && !b.ts) return 0;
     if (!a.ts) return 1;
@@ -75,7 +102,7 @@ function processFiles(files) {
 
   allLines = rawLines;
   activeFiles = new Set(files.map((_, i) => i));
-  activeLevels = new Set(['error','warn','info','debug','audit','trace','other']);
+  activeLevels = new Set([0,1,2,3,4,5,6]);
 
   // Build UI
   buildFileChips();
@@ -83,7 +110,7 @@ function processFiles(files) {
   showFeed();
   updateStats();
 
+  const elapsed = ((performance.now() - parseStartTime) / 1000).toFixed(1);
   $('loadingBar').classList.remove('active');
-  $('statusLeft').textContent = `${allLines.length.toLocaleString()} lines loaded from ${files.length} file${files.length > 1 ? 's' : ''}`;
+  $('statusLeft').textContent = allLines.length.toLocaleString() + ' lines loaded from ' + files.length + ' files in ' + elapsed + 's';
 }
-

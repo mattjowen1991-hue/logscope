@@ -1,41 +1,50 @@
 // === STATE ===
-let allLines = [];         // { lineNum, ts, level, content, fileIndex, fileName, raw }
+let allLines = [];         // { lineNum, ts, level, content, fileIndex, fileName }
 let filteredLines = [];
-let fileColors = [];       // { name, color }
+let fileColors = [];       // { name, color, group }
+let fileGroups = {};       // { groupName: [fileIdx, ...] }
 let activeFiles = new Set();
-let activeLevels = new Set(['error','warn','info','debug','audit','trace','other']);
+let activeLevels = new Set([0,1,2,3,4,5,6]);
 let searchTerm = '';
-let searchMatches = [];
+let parseStartTime = 0;
+let highlightedLine = -1;
 
 const $ = id => document.getElementById(id);
 const TS_RE = /^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\.?\d*/;
 const LEVEL_RE = /\[(ERROR|WARN|WARNING|INFO|DEBUG|TRACE|AUDIT)\]/i;
+const LEVEL_MAP = { error:1, warn:2, warning:2, info:3, debug:4, audit:5, trace:6 };
+const LEVEL_NAMES = ['','error','warn','info','debug','audit','trace'];
+const LEVEL_FILTERS = { error:1, warn:2, info:3, debug:4, audit:5, trace:6 };
 
 const FILE_COLORS = [
-  'var(--file-1)','var(--file-2)','var(--file-3)','var(--file-4)','var(--file-5)',
-  'var(--file-6)','var(--file-7)','var(--file-8)','var(--file-9)','var(--file-10)'
+  '#00ff41','#00e5ff','#ffb300','#ff00ff','#ff3333',
+  '#4488ff','#88ff88','#ff8844','#44ffdd','#ddff44',
+  '#ff6688','#66ffcc','#cc88ff','#ffcc44','#44ccff'
 ];
 
-// === TIMESTAMP PARSER ===
-function parseTs(line) {
+// === PARSERS ===
+function parseTsMs(line) {
   const m = line.match(TS_RE);
   if (!m) return null;
-  return new Date(m[1] + 'T' + m[2] + 'Z').getTime();
+  const d = m[1], t = m[2];
+  return Date.UTC(+d.slice(0,4), +d.slice(5,7)-1, +d.slice(8,10), +t.slice(0,2), +t.slice(3,5), +t.slice(6,8));
 }
 
-function parseLevel(line) {
+function parseLevelNum(line) {
   const m = line.match(LEVEL_RE);
-  if (!m) return 'other';
-  const l = m[1].toUpperCase();
-  if (l === 'WARNING') return 'warn';
-  return l.toLowerCase();
+  if (!m) return 0;
+  return LEVEL_MAP[m[1].toLowerCase()] || 0;
 }
 
-function fmtTime(ts) {
-  if (!ts) return '';
-  const d = new Date(ts);
+function fmtTime(ms) {
+  if (!ms) return '';
+  const d = new Date(ms);
   return String(d.getUTCHours()).padStart(2,'0') + ':' +
          String(d.getUTCMinutes()).padStart(2,'0') + ':' +
          String(d.getUTCSeconds()).padStart(2,'0');
 }
 
+function getFileGroup(name) {
+  const m = name.match(/^([a-zA-Z_]+)/);
+  return m ? m[1] : name;
+}

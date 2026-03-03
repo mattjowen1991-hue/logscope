@@ -1,8 +1,12 @@
 // === EVENT HANDLERS ===
 
 // Virtual scroll
+let scrollRaf = 0;
 $('feedContainer').addEventListener('scroll', () => {
-  if (filteredLines.length > 0) renderFeed();
+  cancelAnimationFrame(scrollRaf);
+  scrollRaf = requestAnimationFrame(() => {
+    if (filteredLines.length > 0) renderFeed();
+  });
 });
 
 // File upload
@@ -39,14 +43,15 @@ $('pasteModal').addEventListener('click', (e) => {
 // Clear
 $('clearBtn').addEventListener('click', showUpload);
 
-// Search
+// Search — debounced
 let searchTimer;
 $('searchInput').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
     searchTerm = e.target.value.trim().toLowerCase();
+    lastRenderStart = -1;
     applyFilters();
-  }, 150);
+  }, 300);
 });
 
 // Ctrl+F override
@@ -69,48 +74,60 @@ $('levelFilters').addEventListener('click', (e) => {
   const level = btn.dataset.level;
 
   if (level === 'all') {
-    // Toggle all
     const allActive = document.querySelectorAll('.filter-btn.active').length === document.querySelectorAll('.filter-btn').length;
     document.querySelectorAll('.filter-btn').forEach(b => {
-      if (allActive) {
-        b.classList.remove('active');
-      } else {
-        b.classList.add('active');
-      }
+      if (allActive) b.classList.remove('active'); else b.classList.add('active');
     });
     if (allActive) {
       activeLevels.clear();
     } else {
-      activeLevels = new Set(['error','warn','info','debug','audit','trace','other']);
+      activeLevels = new Set([0,1,2,3,4,5,6]);
     }
   } else {
     btn.classList.toggle('active');
-    if (activeLevels.has(level)) {
-      activeLevels.delete(level);
-    } else {
-      activeLevels.add(level);
-    }
-    // Update "All" button state
+    const levelNum = LEVEL_FILTERS[level] || 0;
+    if (activeLevels.has(levelNum)) activeLevels.delete(levelNum); else activeLevels.add(levelNum);
     const allBtn = document.querySelector('.filter-btn[data-level="all"]');
-    const nonAllBtns = document.querySelectorAll('.filter-btn:not([data-level="all"])');
-    const allActive = Array.from(nonAllBtns).every(b => b.classList.contains('active'));
-    if (allActive) allBtn.classList.add('active'); else allBtn.classList.remove('active');
+    const nonAll = document.querySelectorAll('.filter-btn:not([data-level="all"])');
+    if (Array.from(nonAll).every(b => b.classList.contains('active'))) allBtn.classList.add('active');
+    else allBtn.classList.remove('active');
   }
 
+  lastRenderStart = -1;
   applyFilters();
 });
 
-// Hover line number in status bar
+// File dropdown toggle
+$('fileDropdownBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  $('fileDropdown').classList.toggle('open');
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.file-dropdown-wrap')) $('fileDropdown').classList.remove('open');
+});
+
+// Line click to highlight
+$('feedContainer').addEventListener('click', (e) => {
+  const row = e.target.closest('.log-line');
+  if (!row) return;
+  const numEl = row.querySelector('.line-num');
+  if (!numEl) return;
+  const visIdx = parseInt(numEl.textContent) - 1;
+  highlightedLine = (highlightedLine === visIdx) ? -1 : visIdx;
+  lastRenderStart = -1;
+  renderFeed();
+});
+
+// Hover line info in status bar
 $('feedContainer').addEventListener('mouseover', (e) => {
   const line = e.target.closest('.log-line');
   if (line) {
-    const num = line.querySelector('.line-num')?.textContent;
-    const fileInd = line.querySelector('.file-indicator');
-    if (num) {
-      const idx = parseInt(num) - 1;
-      const l = allLines[idx];
-      if (l) {
-        $('cursorPos').textContent = 'Ln ' + num + ' · ' + l.fileName;
+    const numEl = line.querySelector('.line-num');
+    if (numEl) {
+      const visIdx = parseInt(numEl.textContent) - 1;
+      if (visIdx >= 0 && visIdx < filteredLines.length) {
+        const l = filteredLines[visIdx];
+        $('cursorPos').textContent = 'Ln ' + (visIdx + 1) + ' / ' + filteredLines.length.toLocaleString() + ' \u00B7 ' + fileColors[l.fileIndex]?.name;
       }
     }
   }

@@ -1,27 +1,28 @@
 // === FILTERING ===
+let lastRenderStart = -1;
+let lastRenderEnd = -1;
+
 function applyFilters() {
   filteredLines = allLines.filter(l => {
     if (!activeFiles.has(l.fileIndex)) return false;
     if (!activeLevels.has(l.level)) return false;
-    if (searchTerm && !l.raw.toLowerCase().includes(searchTerm)) return false;
+    if (searchTerm && !l.content.toLowerCase().includes(searchTerm)) return false;
     return true;
   });
 
-  // Track search matches
   if (searchTerm) {
-    searchMatches = filteredLines.filter(l => l.raw.toLowerCase().includes(searchTerm));
-    $('searchCount').textContent = searchMatches.length + ' matches';
+    $('searchCount').textContent = filteredLines.length.toLocaleString() + ' matches';
   } else {
-    searchMatches = [];
     $('searchCount').textContent = filteredLines.length.toLocaleString() + ' lines';
   }
 
+  lastRenderStart = -1;
   renderFeed();
 }
 
 // === VIRTUAL SCROLL FEED ===
 const ROW_H = 20;
-const BUFFER = 30;
+const BUFFER = 40;
 
 function renderFeed() {
   const container = $('feedContainer');
@@ -32,48 +33,41 @@ function renderFeed() {
   feed.style.height = totalHeight + 'px';
   feed.style.position = 'relative';
 
-  // Clear existing
-  feed.innerHTML = '';
-
-  // Render visible rows
   const scrollTop = container.scrollTop;
   const viewH = container.clientHeight;
   const startIdx = Math.max(0, Math.floor(scrollTop / ROW_H) - BUFFER);
   const endIdx = Math.min(total, Math.ceil((scrollTop + viewH) / ROW_H) + BUFFER);
 
-  const fragment = document.createDocumentFragment();
+  // Skip if visible range unchanged
+  if (startIdx === lastRenderStart && endIdx === lastRenderEnd) return;
+  lastRenderStart = startIdx;
+  lastRenderEnd = endIdx;
+
+  const hasSearch = searchTerm.length > 0;
+  const searchRe = hasSearch ? new RegExp('(' + escapeRegex(searchTerm) + ')', 'gi') : null;
+  const parts = [];
+
   for (let i = startIdx; i < endIdx; i++) {
     const l = filteredLines[i];
-    const row = document.createElement('div');
-    row.className = 'log-line';
-    if (searchTerm && l.raw.toLowerCase().includes(searchTerm)) {
-      row.classList.add('search-match');
-    }
-    row.style.position = 'absolute';
-    row.style.top = (i * ROW_H) + 'px';
-    row.style.left = '0';
-    row.style.right = '0';
-    row.style.height = ROW_H + 'px';
+    const color = fileColors[l.fileIndex]?.color || '#555';
+    const levelName = LEVEL_NAMES[l.level] || '';
+    const isHighlighted = (i === highlightedLine);
 
-    const fileColor = fileColors[l.fileIndex]?.color || 'var(--text-dim)';
+    let content = escapeHtml(l.content);
+    if (searchRe) content = content.replace(searchRe, '<span class="hl">$1</span>');
 
-    // Highlight search matches in content
-    let displayContent = escapeHtml(l.content);
-    if (searchTerm) {
-      const re = new RegExp('(' + escapeRegex(searchTerm) + ')', 'gi');
-      displayContent = displayContent.replace(re, '<span class="hl">$1</span>');
-    }
-
-    row.innerHTML =
-      '<div class="file-indicator" style="background:' + fileColor + '"></div>' +
-      '<div class="line-num">' + l.lineNum + '</div>' +
+    parts.push(
+      '<div class="log-line' + (isHighlighted ? ' highlighted' : '') + (hasSearch ? ' search-match' : '') +
+      '" style="position:absolute;top:' + (i * ROW_H) + 'px;left:0;right:0;height:' + ROW_H + 'px">' +
+      '<div class="file-indicator" style="background:' + color + '"></div>' +
+      '<div class="line-num">' + (i + 1) + '</div>' +
       '<div class="line-ts">' + fmtTime(l.ts) + '</div>' +
-      '<div class="line-level ' + l.level + '">' + (l.level === 'other' ? '' : l.level) + '</div>' +
-      '<div class="line-content">' + displayContent + '</div>';
-
-    fragment.appendChild(row);
+      '<div class="line-level ' + levelName + '">' + levelName + '</div>' +
+      '<div class="line-content">' + content + '</div>' +
+      '</div>'
+    );
   }
-  feed.appendChild(fragment);
+  feed.innerHTML = parts.join('');
 }
 
 function escapeHtml(s) {
@@ -83,4 +77,3 @@ function escapeHtml(s) {
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-

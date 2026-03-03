@@ -1,12 +1,8 @@
 // === EVENT HANDLERS ===
 
-// Virtual scroll — use requestAnimationFrame for smooth scrolling
-let scrollRaf = 0;
+// Virtual scroll
 $('feedContainer').addEventListener('scroll', () => {
-  cancelAnimationFrame(scrollRaf);
-  scrollRaf = requestAnimationFrame(() => {
-    if (filteredIndices.length > 0) renderFeed();
-  });
+  if (filteredLines.length > 0) renderFeed();
 });
 
 // File upload
@@ -43,15 +39,14 @@ $('pasteModal').addEventListener('click', (e) => {
 // Clear
 $('clearBtn').addEventListener('click', showUpload);
 
-// Search — debounced at 300ms for large datasets
+// Search
 let searchTimer;
 $('searchInput').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
     searchTerm = e.target.value.trim().toLowerCase();
-    lastRenderStart = -1; // force re-render
     applyFilters();
-  }, 300);
+  }, 150);
 });
 
 // Ctrl+F override
@@ -74,40 +69,48 @@ $('levelFilters').addEventListener('click', (e) => {
   const level = btn.dataset.level;
 
   if (level === 'all') {
+    // Toggle all
     const allActive = document.querySelectorAll('.filter-btn.active').length === document.querySelectorAll('.filter-btn').length;
     document.querySelectorAll('.filter-btn').forEach(b => {
-      if (allActive) b.classList.remove('active'); else b.classList.add('active');
+      if (allActive) {
+        b.classList.remove('active');
+      } else {
+        b.classList.add('active');
+      }
     });
     if (allActive) {
       activeLevels.clear();
     } else {
-      activeLevels = new Set([0,1,2,3,4,5,6]);
+      activeLevels = new Set(['error','warn','info','debug','audit','trace','other']);
     }
   } else {
     btn.classList.toggle('active');
-    const levelNum = LEVEL_FILTERS[level] || 0;
-    if (activeLevels.has(levelNum)) activeLevels.delete(levelNum); else activeLevels.add(levelNum);
-    // Update "All" button
+    if (activeLevels.has(level)) {
+      activeLevels.delete(level);
+    } else {
+      activeLevels.add(level);
+    }
+    // Update "All" button state
     const allBtn = document.querySelector('.filter-btn[data-level="all"]');
-    const nonAll = document.querySelectorAll('.filter-btn:not([data-level="all"])');
-    if (Array.from(nonAll).every(b => b.classList.contains('active'))) allBtn.classList.add('active');
-    else allBtn.classList.remove('active');
+    const nonAllBtns = document.querySelectorAll('.filter-btn:not([data-level="all"])');
+    const allActive = Array.from(nonAllBtns).every(b => b.classList.contains('active'));
+    if (allActive) allBtn.classList.add('active'); else allBtn.classList.remove('active');
   }
 
-  lastRenderStart = -1;
   applyFilters();
 });
 
-// Hover line info in status bar
+// Hover line number in status bar
 $('feedContainer').addEventListener('mouseover', (e) => {
   const line = e.target.closest('.log-line');
   if (line) {
-    const numEl = line.querySelector('.line-num');
-    if (numEl) {
-      const visIdx = parseInt(numEl.textContent) - 1;
-      if (visIdx >= 0 && visIdx < filteredIndices.length) {
-        const li = filteredIndices[visIdx];
-        $('cursorPos').textContent = 'Ln ' + (visIdx + 1) + ' / ' + filteredIndices.length.toLocaleString() + ' \u00B7 ' + fileColors[lineFileIdx[li]]?.name;
+    const num = line.querySelector('.line-num')?.textContent;
+    const fileInd = line.querySelector('.file-indicator');
+    if (num) {
+      const idx = parseInt(num) - 1;
+      const l = allLines[idx];
+      if (l) {
+        $('cursorPos').textContent = 'Ln ' + num + ' · ' + l.fileName;
       }
     }
   }

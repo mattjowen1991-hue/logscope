@@ -8,7 +8,6 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
 </head>
-</head>
 <body>
 
   <!-- HEADER -->
@@ -45,19 +44,7 @@
       <button class="filter-btn active" data-level="trace">Trc</button>
     </div>
     <div class="toolbar-sep"></div>
-    <div class="file-dropdown-wrap">
-      <button class="btn file-dropdown-btn" id="fileDropdownBtn">Files <span id="fileDropdownCount"></span> ▾</button>
-      <div class="file-dropdown" id="fileDropdown">
-        <div class="file-dropdown-header">
-          <span>Source Files</span>
-          <div class="file-dropdown-actions">
-            <button class="file-dd-action" id="fileSelectAll">All</button>
-            <button class="file-dd-action" id="fileSelectNone">None</button>
-          </div>
-        </div>
-        <div class="file-dropdown-list" id="fileDropdownList"></div>
-      </div>
-    </div>
+    <div class="file-chips" id="fileChips"></div>
   </div>
 
   <!-- LOADING BAR -->
@@ -105,7 +92,7 @@
   </div>
 
   <!-- HIDDEN FILE INPUT -->
-  <input type="file" id="fileInput" multiple accept=".log,.txt,.zip,.1,.2,.3,.4,.5,.6,.7,.8,.9" />
+  <input type="file" id="fileInput" multiple accept=".log,.txt,.1,.2,.3,.4,.5,.6,.7,.8,.9" />
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="js/state.js"></script>

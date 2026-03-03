@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogScope — Hubstaff Log Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">LogScope <span>v0.1 — Hubstaff Log Explorer</span></div>
+      <div class="header-stats" id="headerStats" style="display:none;">
+        <div>Lines: <span class="stat-val" id="statLines">0</span></div>
+        <div>Files: <span class="stat-val" id="statFiles">0</span></div>
+        <div>Span: <span class="stat-val" id="statSpan">—</span></div>
+      </div>
+    </div>
+    <div class="header-right">
+      <a href="https://mattjowen1991-hue.github.io/hubstaff-log-analyzer-test-enviroment/" target="_blank" class="analyzer-link">↗ Open Analyzer</a>
+      <button class="btn" id="clearBtn" style="display:none;">Clear</button>
+      <button class="btn btn-primary" id="loadBtn">Load Files</button>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar" id="toolbar" style="display:none;">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Search logs... (Ctrl+F)" />
+    </div>
+    <span class="search-count" id="searchCount"></span>
+    <div class="toolbar-sep"></div>
+    <div class="filter-group" id="levelFilters">
+      <button class="filter-btn active" data-level="all">All</button>
+      <button class="filter-btn active" data-level="error">Err</button>
+      <button class="filter-btn active" data-level="warn">Warn</button>
+      <button class="filter-btn active" data-level="info">Info</button>
+      <button class="filter-btn active" data-level="debug">Dbg</button>
+      <button class="filter-btn active" data-level="audit">Aud</button>
+      <button class="filter-btn active" data-level="trace">Trc</button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <div class="file-dropdown-wrap">
+      <button class="btn file-dropdown-btn" id="fileDropdownBtn">Files <span id="fileDropdownCount"></span> ▾</button>
+      <div class="file-dropdown" id="fileDropdown">
+        <div class="file-dropdown-header">
+          <span>Source Files</span>
+          <div class="file-dropdown-actions">
+            <button class="file-dd-action" id="fileSelectAll">All</button>
+            <button class="file-dd-action" id="fileSelectNone">None</button>
+          </div>
+        </div>
+        <div class="file-dropdown-list" id="fileDropdownList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING BAR -->
+  <div class="loading-bar" id="loadingBar"></div>
+
+  <!-- MAIN AREA -->
+  <div class="main">
+    <div class="feed-panel">
+      <div class="feed-container" id="feedContainer">
+        <!-- Upload state -->
+        <div class="upload-overlay" id="uploadOverlay">
+          <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon">▶ _</div>
+            <h3>Drop log files here</h3>
+            <p>Upload multiple files — they'll be merged chronologically<br>with color-coded source indicators</p>
+            <div class="supported">hubstaff.log · hubstaff.1–9 · audit.log · error.log · crash.log · helper_hubstaff.log</div>
+          </div>
+          <button class="paste-btn" id="pasteBtn">or paste log text</button>
+        </div>
+
+        <!-- Log feed (virtual scroll) -->
+        <div id="logFeed" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <div id="statusLeft">Ready</div>
+    <div>
+      <span class="cursor-pos" id="cursorPos"></span>
+    </div>
+  </div>
+
+  <!-- PASTE MODAL -->
+  <div class="modal-overlay" id="pasteModal">
+    <div class="modal">
+      <h3>// PASTE LOG TEXT</h3>
+      <textarea id="pasteArea" placeholder="Paste log content here..."></textarea>
+      <div class="modal-actions">
+        <button class="btn" id="pasteCancel">Cancel</button>
+        <button class="btn btn-primary" id="pasteLoad">Load</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HIDDEN FILE INPUT -->
+  <input type="file" id="fileInput" multiple accept=".log,.txt,.zip,.1,.2,.3,.4,.5,.6,.7,.8,.9" />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/file-loader.js"></script>
+  <script src="js/feed-renderer.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/events.js"></script>
+</body>
+</html>
